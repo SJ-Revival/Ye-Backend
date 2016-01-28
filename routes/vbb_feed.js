@@ -5,8 +5,6 @@
 var express = require('express');
 var router = express.Router();
 
-var config = require('../config');
-
 var async = require('async');
 var request = require('request');
 var Geopoint = require('geopoint');
@@ -50,7 +48,6 @@ trainStations = ["9058101",
     "9054104"
 ]
 
-console.log(trainStations.indexOf('9058101'));
 
 function getNextStation(sbody, tbody) {
     sbody = JSON.parse(sbody);
@@ -64,6 +61,8 @@ function getNextStation(sbody, tbody) {
         if(tbody.t[k].n.match(".*S42")) {
             result.push({
                 trainID: tbody.t[k].i,
+                x: tbody.t[k].x,
+                y: tbody.t[k].y,
                 stations: []
             });
             //calculate geoPosition
@@ -77,7 +76,7 @@ function getNextStation(sbody, tbody) {
                     if(sbody.stops[i][7][j][1].match("S42")){
                         stationPoint = new Geopoint(sbody.stops[i][0]/Math.pow(10, 6), sbody.stops[i][1]/Math.pow(10, 6));
                         newDist = trainPoint.distanceTo(stationPoint, true);
-                        console.log(stationPoint);
+                        //console.log(stationPoint);
                         result[l].stations.push({
                                 stationName: sbody.stops[i][3], //StationName
                                 stationID: sbody.stops[i][4],
@@ -101,24 +100,74 @@ function getNextStation(sbody, tbody) {
     return result;
 }
 
-function getClosestStation(trains, dist) {
-    result = [];
+function getClosestStation(trains) {
+    calc = [];
 
+
+    //iterate through trains
     for(j = 0; j < trains.length; j++) {
+
+        console.log(trains[j].stations[0].distance)
         if(trains[j].stations[0].distance == 0){
             startStation = trains[j].stations[0].stationID;
-            indexStart = trainStations.indexOf(startStation);
-            stopStation = trains[j].stations[indexStart + 1];
+            indexStart = trainStations.indexOf(startStation.toString());
+            //console.log(indexStart)
+            if((indexStart + 1) > trainStations.length) {
+                stopStation = trainStations[0];
+            } else {
+                stopStation = trainStations[indexStart + 1];
+            }
+
+            console.log(startStation + "  " + stopStation)
+        } else {
+            first_station = trains[j].stations[0].stationID;
+            first_indexStation = trainStations.indexOf(first_station.toString());
+            //console.log(first_indexStation)
+            second_station = trains[j].stations[1].stationID;
+            second_indexStation = trainStations.indexOf(second_station.toString());
+
+            if(first_indexStation < second_indexStation) {
+                startStation = first_station;
+                stopStation = second_station;
+            } else {
+                startStation = second_station;
+                stopStation = first_station;
+            }
         }
+
+        result = { trainID : trains[j].trainID };
+        //iterate through stations from train
         for (i = 0; i < trains[j].stations.length; i++) {
+            station = trains[j].stations[i];
 
-            if (dist == null || trains[j].stations[i].distance <= dist) {
+            //console.log(station.stationID)
+            if(station.stationID == startStation) {
 
+                    result.startStation = station.stationName;
+                    result.startID = station.stationID;
+                    result.startDistance = station.distance;
+            }
+
+            if(station.stationID == stopStation) {
+                result.stopStation = station.stationName;
+                result.stopID = station.stationID;
+                result.stopDistance = station.distance;
             }
 
 
         }
+
+
+        result.percentage = 100/(result.startDistance + result.stopDistance) * result.startDistance;
+
+        //console.log(result.trainID + "   " + result.startDistance + "+" + result.stopDistance + ":" + result.percentage);
+        calc.push(result);
+        //console.log(calc)
+
+
     }
+
+    return calc;
 
 }
 
@@ -149,7 +198,7 @@ function getClosestStation(trains, dist) {
         var look_nv = "zugposmode|2|interval|30000|intervalstep|2000|"
 
         base_url = "http://fahrinfo.vbb.de/bin/query.exe/dny?"
-        request_url_train = base_url
+        request_url_trains = base_url
             + "look_minx="
             + look_minx
             + "&look_maxx="
@@ -169,23 +218,51 @@ function getClosestStation(trains, dist) {
             + "&look_nv="
             + look_nv;
 
-        request_url_trains = "http://localhost/vbb/vbb_trains"
-        request_url_stations = "http://localhost/vbb/vbb_stations"
+        performLocating = 2;
+        tpl = "stop2shortjson";
+        look_nv = "get_shortjson|yes|get_lines|yes|combinemode|1|density|26|";
+        var look_stopclass = 2;
 
-        trainList = []
+
+
+        request_url_stations = base_url
+            + "performLocating="
+            + performLocating
+            + "&look_minx="
+            + look_minx
+            + "&look_maxx="
+            + look_maxx
+            + "&look_miny="
+            + look_miny
+            + "&look_maxy="
+            + look_maxy
+            + "&tpl="
+            + tpl
+            + "&look_stopclass="
+            + look_stopclass
+            + "&look_nv="
+            + look_nv;
+
+        // request_url_trains = "http://localhost/vbb/vbb_trains"
+        // request_url_stations = "http://localhost/vbb/vbb_stations"
+        //console.log(request_url_stations);
+        //console.log(request_url_trains);
+
         request(request_url_stations, function(serror, sresponse, sbody){
             if (!serror && sresponse.statusCode == 200){
                 request(request_url_trains, function(terror, tresponse, tbody){
                     if (!terror && tresponse.statusCode == 200){
 
+
                         distance = getNextStation(sbody, tbody);
-                        result = getNextStation(distnace);
+                        console.log(distance[0].stations)
+                        result = getClosestStation(distance);
 
 
 
 
 
-                        res.json(distance);
+                        res.json(result);
                         res.end()
 
                     }
