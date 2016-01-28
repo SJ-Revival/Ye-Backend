@@ -7,17 +7,18 @@ var cookieParser = require('cookie-parser');
 //doesnt handly "multipart/form-data"
 var bodyParser = require('body-parser');
 
-var routes = require('./routes/index');
-var users = require('./routes/users');
-var search = require('./routes/search');
-var json_api = require('./routes/json');
+//var routes = require('./routes/index');
+//var users = require('./routes/users');
+//var search = require('./routes/search');
+//var json_api = require('./routes/json');
+var vbb_feed = require('./routes/vbb_feed');
 var app = express();
 //add timestamps in front of log messages
 require('console-stamp')(console, 'dd/mm/yyyy HH:MM:ss.l');
 
-var mongo = require('mongodb');
-var monk = require('monk');
-var db = monk('localhost:27017/hungry');
+//var mongo = require('mongodb');
+//var monk = require('monk');
+//var db = monk('localhost:27017/hungry');
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -42,15 +43,16 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(function(req, res, next) {
 
-  req.db = db;
+  //req.db = db;
   next();
 });
 
 //comment out because not relevant for project
-app.use('/', routes);
+//app.use('/', routes);
 //app.use('/users', users);
-app.use('/search', search);
-app.use('/json', json_api);
+//app.use('/search', search);
+//app.use('/json', json_api);
+app.use('/vbb_feed', vbb_feed);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
