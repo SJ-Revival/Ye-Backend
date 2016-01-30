@@ -3,6 +3,7 @@ var path = require('path');
 var favicon = require('serve-favicon');
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
+var basicAuth = require('basic-auth-connect');
 
 //doesnt handly "multipart/form-data"
 var bodyParser = require('body-parser');
@@ -33,6 +34,10 @@ logger.format('mydate', function() {
     var df = require('console-stamp/node_modules/dateformat');
     return df(new Date(), 'HH:MM:ss.l');
 });
+
+
+
+app.use(basicAuth('sj-revival', 'yeProjekt16'));
 app.use(logger(':mydate :method :url :status :res[content-length] - :remote-addr - :response-time ms'));
 
 //app.use(logger('dev'));

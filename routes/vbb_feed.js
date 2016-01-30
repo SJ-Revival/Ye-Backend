@@ -63,7 +63,8 @@ function getNextStation(sbody, tbody) {
                 trainID: tbody.t[k].i,
                 x: tbody.t[k].x,
                 y: tbody.t[k].y,
-                stations: []
+                stations: [],
+                p: tbody.t[k].p
             });
             //calculate geoPosition
             trainPoint = new Geopoint(tbody.t[k].x/Math.pow(10, 6), tbody.t[k].y/Math.pow(10, 6));
@@ -103,11 +104,12 @@ function getNextStation(sbody, tbody) {
 function getClosestStation(trains) {
     calc = [];
 
-
-    //iterate through trains
     for(j = 0; j < trains.length; j++) {
 
-        console.log(trains[j].stations[0].distance)
+
+        // try to get interpolatet positions from trains
+        //iterate through trains
+        //console.log("First station distance:   " + trains[j].stations[0].distance)
         if(trains[j].stations[0].distance == 0){
             startStation = trains[j].stations[0].stationID;
             indexStart = trainStations.indexOf(startStation.toString());
@@ -116,15 +118,17 @@ function getClosestStation(trains) {
                 stopStation = trainStations[0];
             } else {
                 stopStation = trainStations[indexStart + 1];
+                //console.log("If station not last in array:   " + stopStation)
             }
 
-            console.log(startStation + "  " + stopStation)
+            //console.log("If startStation is zero:   " + startStation + "  " + stopStation)
         } else {
             first_station = trains[j].stations[0].stationID;
             first_indexStation = trainStations.indexOf(first_station.toString());
-            //console.log(first_indexStation)
+
             second_station = trains[j].stations[1].stationID;
             second_indexStation = trainStations.indexOf(second_station.toString());
+            //console.log("If startStation is not zero:   " + first_station + "  " +first_indexStation  + "   " + second_station + "  " + second_indexStation);
 
             if(first_indexStation < second_indexStation) {
                 startStation = first_station;
@@ -145,18 +149,39 @@ function getClosestStation(trains) {
 
                     result.startStation = station.stationName;
                     result.startID = station.stationID;
+                    result.startLatX = station.latX;
+                    result.startLongY = station.longY;
                     result.startDistance = station.distance;
             }
 
             if(station.stationID == stopStation) {
                 result.stopStation = station.stationName;
                 result.stopID = station.stationID;
+                result.stopLatX = station.latX;
+                result.stopLongY = station.longY;
                 result.stopDistance = station.distance;
             }
 
 
         }
 
+        startStationPoint = new Geopoint(result.startLatX/Math.pow(10, 6), result.startLongY/Math.pow(10, 6));
+        stopStationPoint = new Geopoint(result.stopLatX/Math.pow(10, 6), result.stopLongY/Math.pow(10, 6));
+        result.p =  [];
+
+
+        for(i = 0; i < trains[j].p.length; i++) {
+            trainPoint = new Geopoint(trains[j].p[i].x/Math.pow(10, 6), trains[j].p[i].y/Math.pow(10, 6));
+            startDist = trainPoint.distanceTo(startStationPoint, true);
+            stopDist = trainPoint.distanceTo(stopStationPoint, true);
+            percentage = 100/(startDist + stopDist) * startDist;
+            //console.log("percentage:  " + percentage + " for time:  " + trains[j].p[i].t)
+            result.p.push({
+                percentage : percentage,
+                time : trains[j].p[i].t
+            })
+
+        }
 
         result.percentage = 100/(result.startDistance + result.stopDistance) * result.startDistance;
 
@@ -218,10 +243,12 @@ function getClosestStation(trains) {
             + "&look_nv="
             + look_nv;
 
+
+        //grid to small, need more locations with one API request or create own JSON with S42 stations
         performLocating = 2;
         tpl = "stop2shortjson";
         look_nv = "get_shortjson|yes|get_lines|yes|combinemode|1|density|26|";
-        var look_stopclass = 2;
+        var look_stopclass = 1;
 
 
 
@@ -243,10 +270,11 @@ function getClosestStation(trains) {
             + "&look_nv="
             + look_nv;
 
-        // request_url_trains = "http://localhost/vbb/vbb_trains"
-        // request_url_stations = "http://localhost/vbb/vbb_stations"
-        //console.log(request_url_stations);
-        //console.log(request_url_trains);
+        //request_url_trains = "http://localhost/vbb/vbb_trains"
+        request_url_stations = "http://localhost/vbb/vbb_stations"
+
+        console.log(request_url_stations);
+        console.log(request_url_trains);
 
         request(request_url_stations, function(serror, sresponse, sbody){
             if (!serror && sresponse.statusCode == 200){
@@ -255,7 +283,6 @@ function getClosestStation(trains) {
 
 
                         distance = getNextStation(sbody, tbody);
-                        console.log(distance[0].stations)
                         result = getClosestStation(distance);
 
 
@@ -274,5 +301,12 @@ function getClosestStation(trains) {
 
 
     });
+
+router.get('/stationfeed', function(req, res) {
+    var json = require('../stations.json')
+    res.json(json);
+    res.end()
+
+});
 
 module.exports = router;
